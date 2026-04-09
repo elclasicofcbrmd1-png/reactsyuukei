@@ -15,9 +15,9 @@ export default function App() {
   const [startDate, setStartDate] = useState('2025-03-01');
   const [endDate, setEndDate] = useState('2026-03-31');
   
-  // 各データの保存箱
+  // 各データの保存箱 (初期値はnullにして、未実行状態を判別)
   const [lineData, setLineData] = useState(null);
-  const [patientData, setPatientData] = useState([]);
+  const [patientData, setPatientData] = useState(null);
   const [cancelData, setCancelData] = useState(null);
   
   // サブ状態
@@ -34,7 +34,7 @@ export default function App() {
       const json = await res.json();
       setLineData(json);
     } catch (err) {
-      setError("データの取得に失敗しました。サーバーが動いているか確認してください。");
+      setError("データの取得に失敗しました。サーバー(Python)が動いているか確認してください。");
     } finally {
       setLoading(false);
     }
@@ -68,7 +68,7 @@ export default function App() {
     }
   };
 
-  // 各タブ内の「実行ボタン」用
+  // 各タブ内の「分析を実行」ボタン用
   const refreshCurrentTabData = () => {
     setError(null);
     if (activeTab === 'line') fetchLineAnalysis();
@@ -76,10 +76,7 @@ export default function App() {
     if (activeTab === 'cancel') fetchCancelAnalysis();
   };
 
-  // 初回表示時
-  useEffect(() => {
-    fetchLineAnalysis();
-  }, []);
+  // 初回表示時の自動実行（useEffect）を削除しました
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-800">
@@ -89,7 +86,7 @@ export default function App() {
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           🏥 歯科医院 運営ダッシュボード
         </h1>
-        <p className="text-slate-500">必要な分析データをリアルタイムで確認します</p>
+        <p className="text-slate-500">期間を選択して「分析を実行」をクリックしてください</p>
       </header>
 
       {error && (
@@ -109,14 +106,11 @@ export default function App() {
             key={tab.id}
             onClick={() => {
               setActiveTab(tab.id);
-              // タブ切り替え時に自動でその期間のデータを取得
-              if (tab.id === 'line') fetchLineAnalysis();
-              if (tab.id === 'list') fetchPatientList(searchTerm);
-              if (tab.id === 'cancel') fetchCancelAnalysis();
+              // タブ切り替え時の自動フェッチを削除しました
             }}
             className={`flex items-center gap-2 px-6 py-3 rounded-t-xl font-bold transition-all ${
               activeTab === tab.id 
-                ? 'bg-white text-slate-900 border-t border-l border-r border-slate-200' 
+                ? 'bg-white text-slate-900 border-t border-l border-r border-slate-200 shadow-[0_-2px_10px_-3px_rgba(0,0,0,0.05)]' 
                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
             }`}
           >
@@ -136,12 +130,12 @@ export default function App() {
               endDate={endDate} setEndDate={setEndDate} 
               onExecute={refreshCurrentTabData} loading={loading}
             />
-            {lineData && !loading && (
+            {lineData && !loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                 <StatCard label="LINE全期間 累計登録" value={lineData.total_all_time} unit="名" color="bg-blue-600" />
                 <StatCard label="カルテ総患者数" value={lineData.total_patients_master} unit="名" color="bg-emerald-600" />
               </div>
-            )}
+            ) : !loading && <PlaceholderMessage message="期間を選択して分析を開始してください" />}
           </div>
         )}
 
@@ -173,7 +167,7 @@ export default function App() {
                 </button>
               </div>
             </div>
-            {!loading && <DataTable data={patientData} />}
+            {patientData && !loading ? <DataTable data={patientData} /> : !loading && <PlaceholderMessage message="期間を選択して名簿を表示してください" />}
           </div>
         )}
 
@@ -186,7 +180,7 @@ export default function App() {
               onExecute={refreshCurrentTabData} loading={loading}
             />
             
-            {cancelData && !loading && (
+            {cancelData && !loading ? (
               <div className="space-y-6 pt-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <StatMini label="対象予約" value={cancelData.summary.total_appointments} unit="名" />
@@ -246,7 +240,7 @@ export default function App() {
                   )}
                 </div>
               </div>
-            )}
+            ) : !loading && <PlaceholderMessage message="期間を選択してキャンセル状況を分析してください" />}
           </div>
         )}
 
@@ -262,6 +256,15 @@ export default function App() {
 }
 
 // --- 共通部品 (Sub Components) ---
+
+function PlaceholderMessage({ message }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-32 border-2 border-dashed border-slate-100 rounded-2xl">
+      <Filter className="w-10 h-10 text-slate-200 mb-4" />
+      <p className="text-slate-400 font-medium">{message}</p>
+    </div>
+  );
+}
 
 // 期間選択セクション
 function FilterSection({ startDate, setStartDate, endDate, setEndDate, onExecute, loading }) {
